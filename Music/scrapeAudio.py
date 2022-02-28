@@ -2,6 +2,7 @@ import os
 import subprocess
 import pandas as pd
 import youtube_dl
+import datetime
 
 audio_dir = 'audio'
 if not os.path.exists(audio_dir):
@@ -9,13 +10,20 @@ if not os.path.exists(audio_dir):
 
 # Eurovision Song Contest
 contestantsESC = pd.read_csv('songsESC.csv')
-print(contestantsESC)
+
 for i, r in contestantsESC.iterrows():
     destination_dir = os.path.join(audio_dir, 'ESC', str(r['year']))
     if not os.path.exists(destination_dir):
         os.makedirs(destination_dir)
 
+    # Retrieve the youtube-link and starting point of the fragment from the dataframe
     youtube_url = r['youtube_url_studio']
+    start = r['start']
+    # Determine the end point of the audio fragment by taking 29 seconds
+    datetime_start = datetime.datetime.strptime(start, "%H:%M:%S") 
+    datetime_end = datetime_start + datetime.timedelta(seconds=29)
+    end = datetime_end.strftime("%H:%M:%S")
+
     if youtube_url:
         fn = '{}_{}_{}'.format(
             r['country'], r['song'], r['performer'])
@@ -32,7 +40,7 @@ for i, r in contestantsESC.iterrows():
                     'preferredcodec': 'mp3',
                     'preferredquality': '192',
                 }],
-                'postprocessor_args': ['-ss', '00:01:00', '-to', '00:01:29']     # take audio from 1:00 to 1:29 minutes
+                'postprocessor_args': ['-ss', start, '-to', end]     # save audio only from the predetermined fragment
             }
 
             try:
@@ -46,16 +54,23 @@ for i, r in contestantsESC.iterrows():
         
 # Festival di Sanremo
 contestantsSR = pd.read_csv('songsSanremo.csv')
-print(contestantsSR)
+
 for i, r in contestantsSR.iterrows():
     destination_dir = os.path.join(audio_dir, 'SanRemo', str(r['year']))
     if not os.path.exists(destination_dir):
         os.makedirs(destination_dir)
 
+    # Retrieve the youtube-link and starting point of the fragment from the dataframe
     youtube_url = r['youtube_url_studio']
+    start = r['start']
+    # Determine the end point of the audio fragment by taking 29 seconds
+    datetime_start = datetime.datetime.strptime(start, "%H:%M:%S") 
+    datetime_end = datetime_start + datetime.timedelta(seconds=29)
+    end = datetime_end.strftime("%H:%M:%S")
+
     if youtube_url:
-        fn = '{}_{}_{}'.format(
-            r['country'], r['song'], r['performer'])
+        fn = '{}_{}'.format(
+            r['song'], r['performer'])
 
         # Skip if file already exists
         fp = os.path.join(destination_dir, fn)
@@ -69,7 +84,7 @@ for i, r in contestantsSR.iterrows():
                     'preferredcodec': 'mp3',
                     'preferredquality': '192',
                 }],
-                'postprocessor_args': ['-ss', '00:01:00', '-to', '00:01:29']     # take audio from 1:00 to 1:30 minutes
+                'postprocessor_args': ['-ss', start, '-to', end]     # save audio only from the predetermined fragment
             }
 
             try:
