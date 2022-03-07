@@ -3,7 +3,7 @@ import pandas
 from xgboost import XGBClassifier, plot_importance
 import matplotlib.pyplot as plt
 
-# Create nice style here !!!
+
 plt.style.use('ggplot')
 
 data = pandas.read_csv('./files/features_music_extractor.csv')
@@ -12,7 +12,7 @@ data = pandas.read_csv('./files/features_music_extractor.csv')
 data_num = data.select_dtypes(include='number').iloc[:,1:]
 data_tot = pandas.concat([data['Contest'], data_num], axis=1)
 
-# Compare all years in one
+# Obtain overall feature importance
 X = data_tot.iloc[:,2:]
 y = data_tot.iloc[:,0]
 
@@ -23,10 +23,10 @@ importance_plot = plot_importance(model)
 importance_plot.figure.set_size_inches(10,20)
 if not os.path.exists('figures'):
     os.makedirs('figures')
-importance_plot.figure.savefig('./figures/importance_plot_total.png')
+importance_plot.figure.savefig('./figures/importance_plot_total.png', bbox_inches='tight')
 
 
-# Compare per year
+# Obtain feature importance per year
 for year in [2011, 2012, 2013, 2014, 2015, 2016, 2017, 2018, 2019, 2021]:
     data_tot_year = data_tot.loc[data_tot['Year'] == year]
 
@@ -38,5 +38,5 @@ for year in [2011, 2012, 2013, 2014, 2015, 2016, 2017, 2018, 2019, 2021]:
 
     importance_plot_year = plot_importance(model_year)
     importance_plot_year.figure.set_size_inches(10,20)
-    importance_plot_year.figure.savefig('./figures/importance_plot_' + str(year) + '.png')
+    importance_plot_year.figure.savefig('./figures/importance_plot_' + str(year) + '.png', bbox_inches='tight')
 
