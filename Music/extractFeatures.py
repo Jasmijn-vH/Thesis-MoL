@@ -7,7 +7,6 @@ import pandas
 import re
 
 import matplotlib.pyplot as plt
-from tempfile import TemporaryDirectory
 
 
 rootdirectory = './audio'
@@ -18,14 +17,18 @@ for root, dirs, files in os.walk(rootdirectory):
         # Extract basic information
         year    = os.path.basename(root)
         contest = root.split('/')[-2]
-        country = re.split("_", song)[0]
-        songtit = re.split("_", song)[1]
-        perform = re.split("_", song)[2]
+
+        if contest == 'ESC':
+            country = re.split("_", song)[0]
+            songtit = re.split("_", song)[1]
+            perform = re.split("_", song)[2]
+        else:
+            country = ''
+            songtit = re.split("_", song)[0]
+            perform = re.split("_", song)[1]
 
         # Extract the musical features
-        features, features_frames = es.MusicExtractor(lowlevelStats=['mean', 'stdev'],
-                                                      rhythmStats=['mean', 'stdev'],
-                                                      tonalStats=['mean', 'stdev'])(os.path.join(root, song))
+        features, features_frames = es.MusicExtractor()(os.path.join(root, song))
         
         # Construct a dictionary of the features
         dictio = {
