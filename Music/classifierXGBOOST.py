@@ -5,8 +5,10 @@ import re
 
 from xgboost import XGBClassifier, plot_importance
 import matplotlib.pyplot as plt
+
 from sklearn.metrics import accuracy_score
 from sklearn.preprocessing import OneHotEncoder
+from sklearn.model_selection import LeaveOneGroupOut, KFold, cross_val_score
 
 
 
@@ -46,33 +48,58 @@ for row in range(0, len(enc_data.index)):
 data_num = enc_data.select_dtypes(include='number').iloc[:,1:]
 data_tot = pandas.concat([enc_data['Contest'], data_num], axis=1)
 
-# Obtain overall feature importance
+
+
+# Train general classifier
 X = data_tot.iloc[:,2:]
 y = data_tot.iloc[:,0]
 
-model = XGBClassifier()
-model.fit(X, y)
+model = XGBClassifier(verbosity=0)
+model.fit(X, y, eval_metric='logloss')
 
+# Plot general feature importance
 importance_plot = plot_importance(model)
 importance_plot.figure.set_size_inches(10,60)
 if not os.path.exists('figures'):
     os.makedirs('figures')
 importance_plot.figure.savefig('./figures/importance_plot_total.png', bbox_inches='tight')
 
+# Cross validation (leave one year out)
+dict_year_group = { 2011 : 1, 2012 : 2, 2013 : 3, 2014 : 4, 2015 : 5,
+                    2016 : 6, 2017 : 7, 2018 : 8, 2019 : 9, 2021 : 10 }
+groups = []
+for row in range(0, len(data_tot.index)):
+    groups.append(dict_year_group.get(data_tot['Year'][row]))
 
-# Obtain feature importance per year
+logo = LeaveOneGroupOut()
+
+scores = cross_val_score(model, X, y, groups=groups, cv=logo)
+print(scores)
+print("%0.2f accuracy with a standard deviation of %0.2f" % (scores.mean(), scores.std()))
+
+
+
+# Train classifier per year
 for year in [2011, 2012, 2013, 2014, 2015, 2016, 2017, 2018, 2019, 2021]:
     data_tot_year = data_tot.loc[data_tot['Year'] == year]
 
     X_year = data_tot_year.iloc[:,2:]
     y_year = data_tot_year.iloc[:,0]
 
-    model_year = XGBClassifier()
-    model_year.fit(X_year, y_year)
+    model_year = XGBClassifier(verbosity=0)
+    model_year.fit(X_year, y_year, eval_metric='logloss')
 
+    # Plot feature importance per year
     importance_plot_year = plot_importance(model_year)
     importance_plot_year.figure.set_size_inches(10,20)
     importance_plot_year.figure.savefig('./figures/importance_plot_' + str(year) + '.png', bbox_inches='tight')
+
+    # Cross validation with random groups
+    kf = KFold(n_splits=10, shuffle=True)
+    scores = cross_val_score(model, X, y, cv=kf)
+    print(str(year) + " : %0.2f accuracy with a standard deviation of %0.2f" % (scores.mean(), scores.std()))
+
+
 
 
 # # Test the classifier on 2022 songs
