@@ -78,12 +78,15 @@ y_pred = cross_val_predict(model, X, y, groups=groups, cv=logo)
 
 # Calculating and printing various evaluation metrics
 matt_corrcoef = matthews_corrcoef(y, y_pred)
-f_score = f1_score(y, y_pred)
+f_score_esc = f1_score(y, y_pred, pos_label='ESC')
+f_score_sr = f1_score(y, y_pred, pos_label='SanRemo')
 
 print("Accuracy : %0.3f, Standard Deviation : %0.3f" % (scores.mean(), scores.std()))
-print("F-score : %0.3f" % f_score)
+print("F-score (ESC) : %0.3f" % f_score_esc)
+print("F-score (SR) : %0.3f" % f_score_sr)
 print("Matthews correlation coefficient : %0.3f" % matt_corrcoef)
 
+metrics_df = pandas.DataFrame(dict(year=["Overall"],acc=[scores.mean()],fscore=[f_score_esc],fscoresr=[f_score_sr],mcc=[matt_corrcoef]))
 
 
 # Train classifier per year
@@ -109,14 +112,20 @@ for year in [2011, 2012, 2013, 2014, 2015, 2016, 2017, 2018, 2019, 2021]:
 
     # Calculating and printing various evaluation metrics
     matt_corrcoef_year = matthews_corrcoef(y_year, y_pred_year)
-    f_score_year = f1_score(y_year, y_pred_year)
+    f_score_esc_year = f1_score(y_year, y_pred_year,pos_label='ESC')
+    f_score_sr_year = f1_score(y_year, y_pred_year,pos_label='SanRemo')
 
     print("\n" + str(year) + " :")
     print("Accuracy : %0.3f, Standard Deviation : %0.3f" % (scores_year.mean(), scores_year.std()))
-    print("F-score : %0.3f" % f_score_year)
+    print("F-score (ESC) : %0.3f" % f_score_esc_year)
+    print("F-score (SR) : %0.3f" % f_score_sr_year)
     print("Matthews correlation coefficient : %0.4f" % matt_corrcoef_year)
 
+    metrics_df_year = pandas.DataFrame(dict(year=[str(year)],acc=[scores_year.mean()],fscore=[f_score_esc_year],fscoresr=[f_score_sr_year],mcc=[matt_corrcoef_year]))
+    metrics_df = metrics_df.append(metrics_df_year)
 
+print(metrics_df)
+print(metrics_df.to_latex(header=["Year", "Accuracy (mean)", "F-score (ESC)", "F-score (SR)", "MCC"], index=False))
 
 # # Test the classifier on 2022 songs
 # data_test = pandas.read_csv('./predictions2022/features_music_extractor2022.csv')
