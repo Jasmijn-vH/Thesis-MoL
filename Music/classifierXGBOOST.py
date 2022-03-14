@@ -6,9 +6,9 @@ import re
 from xgboost import XGBClassifier, plot_importance
 import matplotlib.pyplot as plt
 
-from sklearn.metrics import accuracy_score
+from sklearn.metrics import accuracy_score, f1_score, matthews_corrcoef
 from sklearn.preprocessing import OneHotEncoder
-from sklearn.model_selection import LeaveOneGroupOut, KFold, cross_val_score
+from sklearn.model_selection import LeaveOneGroupOut, KFold, cross_val_score, cross_val_predict
 
 
 
@@ -74,8 +74,15 @@ for row in range(0, len(data_tot.index)):
 logo = LeaveOneGroupOut()
 
 scores = cross_val_score(model, X, y, groups=groups, cv=logo)
-print(scores)
-print("%0.2f accuracy with a standard deviation of %0.2f" % (scores.mean(), scores.std()))
+y_pred = cross_val_predict(model, X, y, groups=groups, cv=logo)
+
+# Calculating and printing various evaluation metrics
+matt_corrcoef = matthews_corrcoef(y, y_pred)
+f_score = f1_score(y, y_pred)
+
+print("Accuracy : %0.3f, Standard Deviation : %0.3f" % (scores.mean(), scores.std()))
+print("F-score : %0.3f" % f_score)
+print("Matthews correlation coefficient : %0.3f" % matt_corrcoef)
 
 
 
@@ -96,9 +103,18 @@ for year in [2011, 2012, 2013, 2014, 2015, 2016, 2017, 2018, 2019, 2021]:
 
     # Cross validation with random groups
     kf = KFold(n_splits=10, shuffle=True)
-    scores = cross_val_score(model, X, y, cv=kf)
-    print(str(year) + " : %0.2f accuracy with a standard deviation of %0.2f" % (scores.mean(), scores.std()))
 
+    scores_year = cross_val_score(model, X_year, y_year, cv=kf)
+    y_pred_year = cross_val_predict(model, X_year, y_year, cv=kf)
+
+    # Calculating and printing various evaluation metrics
+    matt_corrcoef_year = matthews_corrcoef(y_year, y_pred_year)
+    f_score_year = f1_score(y_year, y_pred_year)
+
+    print("\n" + str(year) + " :")
+    print("Accuracy : %0.3f, Standard Deviation : %0.3f" % (scores_year.mean(), scores_year.std()))
+    print("F-score : %0.3f" % f_score_year)
+    print("Matthews correlation coefficient : %0.4f" % matt_corrcoef_year)
 
 
 
