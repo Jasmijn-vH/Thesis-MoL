@@ -6,9 +6,63 @@ import re
 from xgboost import XGBClassifier, plot_importance
 import matplotlib.pyplot as plt
 
-from sklearn.metrics import accuracy_score, f1_score, matthews_corrcoef
+from sklearn import metrics
 from sklearn.preprocessing import OneHotEncoder
 from sklearn.model_selection import LeaveOneGroupOut, KFold, cross_val_score, cross_val_predict
+from sklearn.dummy import DummyClassifier
+
+import seaborn as sbn
+
+
+def plot_feature_importance(model, name):
+    importance_plot = plot_importance(model)
+    if name == "total":
+        importance_plot.figure.set_size_inches(10,60)
+    else:
+        importance_plot.figure.set_size_inches(10,20)
+    if not os.path.exists('figures'):
+        os.makedirs('figures')
+    importance_plot.figure.savefig('./figures/importance_plot_' + name + '.png', bbox_inches='tight')
+    plt.clf()
+
+
+def plot_confusion_matrix(y, y_pred, name):
+    confmatr = metrics.confusion_matrix(y, y_pred)
+    matrix = pandas.DataFrame(confmatr, index=["ESC", "SR"], columns=["ESC","SR"])
+    plot_matrix = sbn.heatmap(matrix, annot=True, fmt='d', cmap='Blues')
+    plot_matrix.set(xlabel='Predicted', ylabel='True')
+    plot_matrix.figure.set_size_inches(10,10)
+    plot_matrix.figure.savefig('./figures/confusion_matrix_' + name + '.png')
+    plt.clf()
+
+
+def evaluation_metrics(metrics_d, y, y_pred, y_pred_proba, y_pred_dummy_mf, y_pred_dummy_st, scores, name):
+    matt_corrcoef = metrics.matthews_corrcoef(y, y_pred)
+    # f_score_esc = f1_score(y, y_pred, pos_label='ESC')
+    # f_score_sr = f1_score(y, y_pred, pos_label='SanRemo')
+    fowmal = metrics.fowlkes_mallows_score(y,y_pred)
+    cohenkappa_mf = metrics.cohen_kappa_score(y_pred, y_pred_dummy_mf)
+    cohenkappa_st = metrics.cohen_kappa_score(y_pred, y_pred_dummy_st)
+    roc_auc = metrics.roc_auc_score(y, y_pred_proba[:,1])
+
+    print("\n" + name + " :")
+    print("Accuracy : %0.3f, Standard Deviation : %0.3f" % (scores.mean(), scores.std()))
+    print("Cohen Kappa (most frequent) : %0.3f" % cohenkappa_mf)
+    print("Cohen Kappa (stratified) : %0.3f" % cohenkappa_st)
+    # print("F-score (ESC) : %0.3f" % f_score_esc)
+    # print("F-score (SR) : %0.3f" % f_score_sr)
+    print("Matthews correlation coefficient : %0.3f" % matt_corrcoef)
+    print("Fowlkes-Mallows score : %0.3f" % fowmal)
+    print("ROC AUC : %0.3f" % roc_auc)
+
+    metrics_d['Year'] = metrics_d['Year'] + [name]
+    metrics_d['Accuracy'] = metrics_d['Accuracy'] + ["%0.5f" % scores.mean()]
+    metrics_d['Cohen Kappa'] = metrics_d['Cohen Kappa'] + ["%0.5f" % cohenkappa_st]
+    metrics_d['MCC'] = metrics_d['MCC'] + ["%0.5f" % matt_corrcoef]
+    metrics_d['FM score'] = metrics_d['FM score'] + ["%0.5f" % fowmal]
+    metrics_d['ROC AUC'] = metrics_d['ROC AUC'] + ["%0.5f" % roc_auc]
+
+    return metrics_d
 
 
 
@@ -57,12 +111,15 @@ y = data_tot.iloc[:,0]
 model = XGBClassifier(verbosity=0)
 model.fit(X, y, eval_metric='logloss')
 
+# Setting up dummy classifiers
+dummy_mf = DummyClassifier(strategy='most_frequent')
+dummy_mf.fit(X, y)
+
+dummy_st = DummyClassifier(strategy='stratified')
+dummy_st.fit(X, y)
+
 # Plot general feature importance
-importance_plot = plot_importance(model)
-importance_plot.figure.set_size_inches(10,60)
-if not os.path.exists('figures'):
-    os.makedirs('figures')
-importance_plot.figure.savefig('./figures/importance_plot_total.png', bbox_inches='tight')
+plot_feature_importance(model, "total")
 
 # Cross validation (leave one year out)
 dict_year_group = { 2011 : 1, 2012 : 2, 2013 : 3, 2014 : 4, 2015 : 5,
@@ -75,18 +132,17 @@ logo = LeaveOneGroupOut()
 
 scores = cross_val_score(model, X, y, groups=groups, cv=logo)
 y_pred = cross_val_predict(model, X, y, groups=groups, cv=logo)
+y_pred_proba = cross_val_predict(model, X, y, groups=groups, cv=logo, method='predict_proba')
+
+y_pred_dummy_mf = cross_val_predict(dummy_mf, X, y, groups=groups, cv=logo)
+y_pred_dummy_st = cross_val_predict(dummy_st, X, y, groups=groups, cv=logo)
+
 
 # Calculating and printing various evaluation metrics
-matt_corrcoef = matthews_corrcoef(y, y_pred)
-f_score_esc = f1_score(y, y_pred, pos_label='ESC')
-f_score_sr = f1_score(y, y_pred, pos_label='SanRemo')
+plot_confusion_matrix(y, y_pred, "total")
 
-print("Accuracy : %0.3f, Standard Deviation : %0.3f" % (scores.mean(), scores.std()))
-print("F-score (ESC) : %0.3f" % f_score_esc)
-print("F-score (SR) : %0.3f" % f_score_sr)
-print("Matthews correlation coefficient : %0.3f" % matt_corrcoef)
-
-metrics_df = pandas.DataFrame(dict(year=["Overall"],acc=[scores.mean()],fscore=[f_score_esc],fscoresr=[f_score_sr],mcc=[matt_corrcoef]))
+metrics_d = {'Year': [], 'Accuracy': [], 'Cohen Kappa': [], 'MCC': [], 'FM score': [], 'ROC AUC': []}
+metrics_d = evaluation_metrics(metrics_d, y, y_pred, y_pred_proba, y_pred_dummy_mf, y_pred_dummy_st, scores, "Total")
 
 
 # Train classifier per year
@@ -99,47 +155,47 @@ for year in [2011, 2012, 2013, 2014, 2015, 2016, 2017, 2018, 2019, 2021]:
     model_year = XGBClassifier(verbosity=0)
     model_year.fit(X_year, y_year, eval_metric='logloss')
 
-    # Plot feature importance per year
-    importance_plot_year = plot_importance(model_year)
-    importance_plot_year.figure.set_size_inches(10,20)
-    importance_plot_year.figure.savefig('./figures/importance_plot_' + str(year) + '.png', bbox_inches='tight')
+    # Setting up dummy classifiers
+    dummy_mf_year = DummyClassifier(strategy='most_frequent')
+    dummy_mf_year.fit(X_year, y_year)
 
-    # Cross validation with random groups
+    dummy_st_year = DummyClassifier(strategy='stratified')
+    dummy_st_year.fit(X_year, y_year)
+
+    # Plot feature importance per year
+    plot_feature_importance(model_year, str(year))
+
+    # Cross validation with random groups and ...
     kf = KFold(n_splits=10, shuffle=True)
 
-    scores_year = cross_val_score(model, X_year, y_year, cv=kf)
-    y_pred_year = cross_val_predict(model, X_year, y_year, cv=kf)
+    # ... the general model
+    scores = cross_val_score(model, X_year, y_year, cv=kf)
+    y_pred = cross_val_predict(model, X_year, y_year, cv=kf)
+    y_pred_proba = cross_val_predict(model, X_year, y_year, cv=kf, method='predict_proba')
+
+    y_pred_dummy_mf = cross_val_predict(dummy_mf, X_year, y_year, cv=kf)
+    y_pred_dummy_st = cross_val_predict(dummy_st, X_year, y_year, cv=kf)
+
+    # ... the yearly model
+    scores_year = cross_val_score(model_year, X_year, y_year, cv=kf)
+    y_pred_year = cross_val_predict(model_year, X_year, y_year, cv=kf)
+    y_pred_proba_year = cross_val_predict(model_year, X_year, y_year, cv=kf, method='predict_proba')
+
+    y_pred_dummy_mf_year = cross_val_predict(dummy_mf_year, X_year, y_year, cv=kf)
+    y_pred_dummy_st_year = cross_val_predict(dummy_st_year, X_year, y_year, cv=kf)
 
     # Calculating and printing various evaluation metrics
-    matt_corrcoef_year = matthews_corrcoef(y_year, y_pred_year)
-    f_score_esc_year = f1_score(y_year, y_pred_year,pos_label='ESC')
-    f_score_sr_year = f1_score(y_year, y_pred_year,pos_label='SanRemo')
+    plot_confusion_matrix(y_year, y_pred_year, str(year))
+    plot_confusion_matrix(y_year, y_pred, str(year) + "_general")
 
-    print("\n" + str(year) + " :")
-    print("Accuracy : %0.3f, Standard Deviation : %0.3f" % (scores_year.mean(), scores_year.std()))
-    print("F-score (ESC) : %0.3f" % f_score_esc_year)
-    print("F-score (SR) : %0.3f" % f_score_sr_year)
-    print("Matthews correlation coefficient : %0.4f" % matt_corrcoef_year)
+    metrics_d = evaluation_metrics(metrics_d, y_year, y_pred_year, y_pred_proba_year, 
+                                   y_pred_dummy_mf_year, y_pred_dummy_st_year, scores_year, str(year))
+    metrics_d = evaluation_metrics(metrics_d, y_year, y_pred, y_pred_proba, 
+                                   y_pred_dummy_mf, y_pred_dummy_st, scores, str(year) + "_general")                               
 
-    metrics_df_year = pandas.DataFrame(dict(year=[str(year)],acc=[scores_year.mean()],fscore=[f_score_esc_year],fscoresr=[f_score_sr_year],mcc=[matt_corrcoef_year]))
-    metrics_df = metrics_df.append(metrics_df_year)
-
+metrics_df = pandas.DataFrame.from_dict(metrics_d)
 print(metrics_df)
-print(metrics_df.to_latex(header=["Year", "Accuracy (mean)", "F-score (ESC)", "F-score (SR)", "MCC"], index=False))
+print(metrics_df.to_latex(index=False))
 
-# # Test the classifier on 2022 songs
-# data_test = pandas.read_csv('./predictions2022/features_music_extractor2022.csv')
 
-# # TO DO: How to handle lists of floats in data?
-# #enc_data_test = pandas.get_dummies(data_test, columns=noms)
-# data_num_test = data_test.select_dtypes(include='number').iloc[:,1:]
-# data_tot_test = pandas.concat([data_test['Contest'], data_num_test], axis=1)
 
-# # Obtain overall feature importance
-# X_test = data_tot_test.iloc[:,2:]
-# y_test = data_tot_test.iloc[:,0]
-
-# y_pred = model.predict(X_test)
-# print(y_pred)
-# accuracy = accuracy_score(y_test, y_pred)
-# print("Accuracy : %.2f%%" % (accuracy * 100.0))
