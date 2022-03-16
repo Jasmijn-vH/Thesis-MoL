@@ -36,19 +36,17 @@ def plot_confusion_matrix(y, y_pred, name):
     plt.clf()
 
 
-def evaluation_metrics(metrics_d, y, y_pred, y_pred_proba, y_pred_dummy_mf, y_pred_dummy_st, scores, name):
+def evaluation_metrics(metrics_d, y, y_pred, y_pred_proba, scores, name):
     matt_corrcoef = metrics.matthews_corrcoef(y, y_pred)
     # f_score_esc = f1_score(y, y_pred, pos_label='ESC')
     # f_score_sr = f1_score(y, y_pred, pos_label='SanRemo')
     fowmal = metrics.fowlkes_mallows_score(y,y_pred)
-    cohenkappa_mf = metrics.cohen_kappa_score(y_pred, y_pred_dummy_mf)
-    cohenkappa_st = metrics.cohen_kappa_score(y_pred, y_pred_dummy_st)
+    cohenkappa = metrics.cohen_kappa_score(y, y_pred)
     roc_auc = metrics.roc_auc_score(y, y_pred_proba[:,1])
 
     print("\n" + name + " :")
     print("Accuracy : %0.3f, Standard Deviation : %0.3f" % (scores.mean(), scores.std()))
-    print("Cohen Kappa (most frequent) : %0.3f" % cohenkappa_mf)
-    print("Cohen Kappa (stratified) : %0.3f" % cohenkappa_st)
+    print("Cohen Kappa : %0.3f" % cohenkappa)
     # print("F-score (ESC) : %0.3f" % f_score_esc)
     # print("F-score (SR) : %0.3f" % f_score_sr)
     print("Matthews correlation coefficient : %0.3f" % matt_corrcoef)
@@ -57,7 +55,7 @@ def evaluation_metrics(metrics_d, y, y_pred, y_pred_proba, y_pred_dummy_mf, y_pr
 
     metrics_d['Year'] = metrics_d['Year'] + [name]
     metrics_d['Accuracy'] = metrics_d['Accuracy'] + ["%0.5f" % scores.mean()]
-    metrics_d['Cohen Kappa'] = metrics_d['Cohen Kappa'] + ["%0.5f" % cohenkappa_st]
+    metrics_d['Cohen Kappa'] = metrics_d['Cohen Kappa'] + ["%0.5f" % cohenkappa]
     metrics_d['MCC'] = metrics_d['MCC'] + ["%0.5f" % matt_corrcoef]
     metrics_d['FM score'] = metrics_d['FM score'] + ["%0.5f" % fowmal]
     metrics_d['ROC AUC'] = metrics_d['ROC AUC'] + ["%0.5f" % roc_auc]
@@ -111,13 +109,6 @@ y = data_tot.iloc[:,0]
 model = XGBClassifier(verbosity=0)
 model.fit(X, y, eval_metric='logloss')
 
-# Setting up dummy classifiers
-dummy_mf = DummyClassifier(strategy='most_frequent')
-dummy_mf.fit(X, y)
-
-dummy_st = DummyClassifier(strategy='stratified')
-dummy_st.fit(X, y)
-
 # Plot general feature importance
 plot_feature_importance(model, "total")
 
@@ -134,15 +125,13 @@ scores = cross_val_score(model, X, y, groups=groups, cv=logo)
 y_pred = cross_val_predict(model, X, y, groups=groups, cv=logo)
 y_pred_proba = cross_val_predict(model, X, y, groups=groups, cv=logo, method='predict_proba')
 
-y_pred_dummy_mf = cross_val_predict(dummy_mf, X, y, groups=groups, cv=logo)
-y_pred_dummy_st = cross_val_predict(dummy_st, X, y, groups=groups, cv=logo)
-
 
 # Calculating and printing various evaluation metrics
 plot_confusion_matrix(y, y_pred, "total")
 
 metrics_d = {'Year': [], 'Accuracy': [], 'Cohen Kappa': [], 'MCC': [], 'FM score': [], 'ROC AUC': []}
-metrics_d = evaluation_metrics(metrics_d, y, y_pred, y_pred_proba, y_pred_dummy_mf, y_pred_dummy_st, scores, "Total")
+metrics_d = evaluation_metrics(metrics_d, y, y_pred, y_pred_proba, scores, "Total")
+
 
 
 # Train classifier per year
@@ -155,13 +144,6 @@ for year in [2011, 2012, 2013, 2014, 2015, 2016, 2017, 2018, 2019, 2021]:
     model_year = XGBClassifier(verbosity=0)
     model_year.fit(X_year, y_year, eval_metric='logloss')
 
-    # Setting up dummy classifiers
-    dummy_mf_year = DummyClassifier(strategy='most_frequent')
-    dummy_mf_year.fit(X_year, y_year)
-
-    dummy_st_year = DummyClassifier(strategy='stratified')
-    dummy_st_year.fit(X_year, y_year)
-
     # Plot feature importance per year
     plot_feature_importance(model_year, str(year))
 
@@ -173,25 +155,20 @@ for year in [2011, 2012, 2013, 2014, 2015, 2016, 2017, 2018, 2019, 2021]:
     y_pred = cross_val_predict(model, X_year, y_year, cv=kf)
     y_pred_proba = cross_val_predict(model, X_year, y_year, cv=kf, method='predict_proba')
 
-    y_pred_dummy_mf = cross_val_predict(dummy_mf, X_year, y_year, cv=kf)
-    y_pred_dummy_st = cross_val_predict(dummy_st, X_year, y_year, cv=kf)
-
     # ... the yearly model
     scores_year = cross_val_score(model_year, X_year, y_year, cv=kf)
     y_pred_year = cross_val_predict(model_year, X_year, y_year, cv=kf)
     y_pred_proba_year = cross_val_predict(model_year, X_year, y_year, cv=kf, method='predict_proba')
 
-    y_pred_dummy_mf_year = cross_val_predict(dummy_mf_year, X_year, y_year, cv=kf)
-    y_pred_dummy_st_year = cross_val_predict(dummy_st_year, X_year, y_year, cv=kf)
 
     # Calculating and printing various evaluation metrics
     plot_confusion_matrix(y_year, y_pred_year, str(year))
     plot_confusion_matrix(y_year, y_pred, str(year) + "_general")
 
     metrics_d = evaluation_metrics(metrics_d, y_year, y_pred_year, y_pred_proba_year, 
-                                   y_pred_dummy_mf_year, y_pred_dummy_st_year, scores_year, str(year))
+                                   scores_year, str(year))
     metrics_d = evaluation_metrics(metrics_d, y_year, y_pred, y_pred_proba, 
-                                   y_pred_dummy_mf, y_pred_dummy_st, scores, str(year) + "_general")                               
+                                   scores, str(year) + "_general")                               
 
 metrics_df = pandas.DataFrame.from_dict(metrics_d)
 print(metrics_df)
