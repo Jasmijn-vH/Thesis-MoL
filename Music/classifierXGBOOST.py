@@ -10,6 +10,7 @@ from sklearn import metrics
 from sklearn.preprocessing import OneHotEncoder
 from sklearn.model_selection import LeaveOneGroupOut, KFold, cross_val_score, cross_val_predict
 from sklearn.dummy import DummyClassifier
+from sklearn.feature_selection import SelectFromModel
 
 import seaborn as sbn
 
@@ -77,12 +78,22 @@ data_tot = data_all.loc[data_all['Year'] != 2022]
 # Train general classifier on data from 2011 - 2021
 X = data_tot.iloc[:,3:]
 y = data_tot.iloc[:,0]
+print("Number of features : " + str(len(X.columns)))
 
 model = XGBClassifier(verbosity=0)
 model.fit(X, y, eval_metric='logloss')
 
 # Plot general feature importance
 plot_feature_importance(model, "total")
+importance_plot_top = plot_importance(model, max_num_features=15)
+importance_plot_top.figure.savefig('./figures/importance_plot_total_top.png', bbox_inches='tight')
+plt.clf()
+
+selection = SelectFromModel(model, threshold=1e-5, prefit=True)
+features_select = selection.get_support()
+features_select_names = X.columns[features_select]
+select_X = selection.transform(X)
+print("Number of used features : " + str(len(select_X[0])))
 
 # Cross validation (leave one year out)
 dict_year_group = { 2011 : 1, 2012 : 2, 2013 : 3, 2014 : 4, 2015 : 5,
@@ -114,19 +125,28 @@ for year in [2011, 2012, 2013, 2014, 2015, 2016, 2017, 2018, 2019, 2021]:
     X_year = data_tot_year.iloc[:,3:]
     y_year = data_tot_year.iloc[:,0]
 
+    X_year_select = X_year[features_select_names]
+
     model_year = XGBClassifier(verbosity=0)
     model_year.fit(X_year, y_year, eval_metric='logloss')
 
+    model_select = XGBClassifier(verbosity=0)
+    model_select.fit(X_year_select, y_year, eval_metric='logloss')
+
     # Plot feature importance per year
     plot_feature_importance(model_year, str(year))
+    plot_feature_importance(model_select, str(year)+'_selection')
 
     # Cross validation with random groups and ...
     y_pred = {}
     y_pred_proba = {}
     y_pred_year = {}
     y_pred_proba_year = {}
+    y_pred_select = {}
+    y_pred_proba_select = {}
     scores = {}
     scores_year = {}
+    scores_select = {}
     for i in range(0,5):
         kf = KFold(n_splits=10, shuffle=True)
 
@@ -148,6 +168,15 @@ for year in [2011, 2012, 2013, 2014, 2015, 2016, 2017, 2018, 2019, 2021]:
         y_pred_year[i]       = y_pred_year_i
         y_pred_proba_year[i] = y_pred_proba_year_i
 
+        # ... the selected model
+        scores_select_i       = cross_val_score(model_select, X_year_select, y_year, cv=kf)
+        y_pred_select_i       = cross_val_predict(model_select, X_year_select, y_year, cv=kf)
+        y_pred_proba_select_i = cross_val_predict(model_select, X_year_select, y_year, cv=kf, method='predict_proba')
+
+        scores_select[i]       = (scores_select_i.mean(), scores_select_i.std())
+        y_pred_select[i]       = y_pred_select_i
+        y_pred_proba_select[i] = y_pred_proba_select_i
+
     # Get the most frequent classification and average probability
     y_pred_lst = zip(y_pred[0], y_pred[1], y_pred[2], y_pred[3], y_pred[4])
     y_pred_lst = [get_most_frequent(t) for t in y_pred_lst]
@@ -167,16 +196,28 @@ for year in [2011, 2012, 2013, 2014, 2015, 2016, 2017, 2018, 2019, 2021]:
     for i in range(0, len(y_pred_proba_year_lst)):
         y_pred_proba_year_list.append(y_pred_proba_year_lst[i][1])
 
+    y_pred_select_lst = zip(y_pred_select[0], y_pred_select[1], y_pred_select[2], y_pred_select[3], y_pred_select[4])
+    y_pred_select_lst = [get_most_frequent(t) for t in y_pred_select_lst]
+
+    y_pred_proba_select_lst = zip(y_pred_proba_select[0], y_pred_proba_select[1], y_pred_proba_select[2], y_pred_proba_select[3], y_pred_proba_select[4])
+    y_pred_proba_select_lst = [(sum(t)/5) for t in y_pred_proba_select_lst]
+    y_pred_proba_select_list = []
+    for i in range(0, len(y_pred_proba_select_lst)):
+        y_pred_proba_select_list.append(y_pred_proba_select_lst[i][1])
+
 
     # Calculating and printing various evaluation metrics
-    predictions[str(year)+'_general'] = y_pred_lst
-    predictions[str(year)] = y_pred_year_lst
+    predictions[str(year)]              = y_pred_year_lst
+    predictions[str(year)+'_general']   = y_pred_lst
+    predictions[str(year)+'_selection'] = y_pred_select_lst
 
-    plot_confusion_matrix(y_year, y_pred_year_lst, str(year))
-    plot_confusion_matrix(y_year, y_pred_lst, str(year) + "_general")
+    plot_confusion_matrix(y_year, y_pred_year_lst,   str(year))
+    plot_confusion_matrix(y_year, y_pred_lst,        str(year) + "_general")
+    plot_confusion_matrix(y_year, y_pred_select_lst, str(year) + "_selection")
 
-    metrics_d = evaluation_metrics(metrics_d, y_year, y_pred_year_lst, y_pred_proba_year_list, scores, str(year))
-    metrics_d = evaluation_metrics(metrics_d, y_year, y_pred_lst, y_pred_proba_list, scores_year, str(year) + "_general")                               
+    metrics_d = evaluation_metrics(metrics_d, y_year, y_pred_year_lst,   y_pred_proba_year_list,   scores_year,   str(year))
+    metrics_d = evaluation_metrics(metrics_d, y_year, y_pred_lst,        y_pred_proba_list,        scores,        str(year) + "_general")
+    metrics_d = evaluation_metrics(metrics_d, y_year, y_pred_select_lst, y_pred_proba_select_list, scores_select, str(year) + "_selection")                               
 
 metrics_df = pandas.DataFrame.from_dict(metrics_d)
 print(metrics_df)
