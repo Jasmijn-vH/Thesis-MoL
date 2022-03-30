@@ -36,7 +36,7 @@ def plot_confusion_matrix(y, y_pred, name):
     plt.clf()
 
 
-def evaluation_metrics(metrics_d, y, y_pred, y_pred_proba, name):
+def evaluation_metrics(metrics_d, y, y_pred, y_pred_proba, scores, name):
     accuracy      = metrics.accuracy_score(y, y_pred)
     matt_corrcoef = metrics.matthews_corrcoef(y, y_pred)
     f_score       = metrics.f1_score(y, y_pred, average='weighted')
@@ -49,6 +49,7 @@ def evaluation_metrics(metrics_d, y, y_pred, y_pred_proba, name):
     print("F-score : %0.3f" % f_score)
     print("Matthews correlation coefficient : %0.3f" % matt_corrcoef)
     print("ROC AUC : %0.3f" % roc_auc)
+    print("Scores :" + str(scores))
 
     metrics_d['Year']           = metrics_d['Year'] + [name]
     metrics_d['Accuracy']       = metrics_d['Accuracy'] + ["%0.5f" % accuracy]
@@ -69,11 +70,12 @@ plt.style.use('seaborn')
 
 data = pandas.read_csv('./files/features_music_extractor.csv')
 
-data_num = data.select_dtypes(include='number').iloc[:,2:]
-data_tot = pandas.concat([data['Contest'], data_num], axis=1)
+data_num = data.select_dtypes(include='number').iloc[:,1:]
+data_all = pandas.concat([data['Contest'], data['Place'], data_num], axis=1)
+data_tot = data_all.loc[data_all['Year'] != 2022]
 
-# Train general classifier
-X = data_tot.iloc[:,2:]
+# Train general classifier on data from 2011 - 2021
+X = data_tot.iloc[:,3:]
 y = data_tot.iloc[:,0]
 
 model = XGBClassifier(verbosity=0)
@@ -86,8 +88,8 @@ plot_feature_importance(model, "total")
 dict_year_group = { 2011 : 1, 2012 : 2, 2013 : 3, 2014 : 4, 2015 : 5,
                     2016 : 6, 2017 : 7, 2018 : 8, 2019 : 9, 2021 : 10 }
 groups = []
-for row in range(0, len(data_tot.index)):
-    groups.append(dict_year_group.get(data_tot['Year'][row]))
+for ind, row in data_tot.iterrows():
+    groups.append(dict_year_group.get(data_tot['Year'][ind]))
 
 logo = LeaveOneGroupOut()
 
@@ -101,7 +103,7 @@ predictions = {'Total' : y_pred}
 plot_confusion_matrix(y, y_pred, "total")
 
 metrics_d = {'Year': [], 'Accuracy': [], 'MCC': [], 'Cohen\'s Kappa': [], 'F-score': [], 'ROC AUC': []}
-metrics_d = evaluation_metrics(metrics_d, y, y_pred, y_pred_proba[:,1], "Total")
+metrics_d = evaluation_metrics(metrics_d, y, y_pred, y_pred_proba[:,1], scores, "Total")
 
 
 
@@ -109,7 +111,7 @@ metrics_d = evaluation_metrics(metrics_d, y, y_pred, y_pred_proba[:,1], "Total")
 for year in [2011, 2012, 2013, 2014, 2015, 2016, 2017, 2018, 2019, 2021]:
     data_tot_year = data_tot.loc[data_tot['Year'] == year]
 
-    X_year = data_tot_year.iloc[:,2:]
+    X_year = data_tot_year.iloc[:,3:]
     y_year = data_tot_year.iloc[:,0]
 
     model_year = XGBClassifier(verbosity=0)
@@ -123,20 +125,26 @@ for year in [2011, 2012, 2013, 2014, 2015, 2016, 2017, 2018, 2019, 2021]:
     y_pred_proba = {}
     y_pred_year = {}
     y_pred_proba_year = {}
+    scores = {}
+    scores_year = {}
     for i in range(0,5):
         kf = KFold(n_splits=10, shuffle=True)
 
         # ... the general model
+        scores_i       = cross_val_score(model, X_year, y_year, cv=kf)
         y_pred_i       = cross_val_predict(model, X_year, y_year, cv=kf)
         y_pred_proba_i = cross_val_predict(model, X_year, y_year, cv=kf, method='predict_proba')
 
+        scores[i]       = (scores_i.mean(), scores_i.std())         
         y_pred[i]       = y_pred_i
         y_pred_proba[i] = y_pred_proba_i
 
         # ... the yearly model
+        scores_year_i       = cross_val_score(model_year, X_year, y_year, cv=kf)
         y_pred_year_i       = cross_val_predict(model_year, X_year, y_year, cv=kf)
         y_pred_proba_year_i = cross_val_predict(model_year, X_year, y_year, cv=kf, method='predict_proba')
 
+        scores_year[i]       = (scores_year_i.mean(), scores_year_i.std())
         y_pred_year[i]       = y_pred_year_i
         y_pred_proba_year[i] = y_pred_proba_year_i
 
@@ -167,8 +175,8 @@ for year in [2011, 2012, 2013, 2014, 2015, 2016, 2017, 2018, 2019, 2021]:
     plot_confusion_matrix(y_year, y_pred_year_lst, str(year))
     plot_confusion_matrix(y_year, y_pred_lst, str(year) + "_general")
 
-    metrics_d = evaluation_metrics(metrics_d, y_year, y_pred_year_lst, y_pred_proba_year_list, str(year))
-    metrics_d = evaluation_metrics(metrics_d, y_year, y_pred_lst, y_pred_proba_list, str(year) + "_general")                               
+    metrics_d = evaluation_metrics(metrics_d, y_year, y_pred_year_lst, y_pred_proba_year_list, scores, str(year))
+    metrics_d = evaluation_metrics(metrics_d, y_year, y_pred_lst, y_pred_proba_list, scores_year, str(year) + "_general")                               
 
 metrics_df = pandas.DataFrame.from_dict(metrics_d)
 print(metrics_df)

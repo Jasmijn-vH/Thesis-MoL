@@ -29,8 +29,8 @@ for i, r in contestantsESC.iterrows():
     start_sec = get_sec(start)
 
     if youtube_url:
-        fn = '{}_{}_{}'.format(
-            r['country'], r['song'], r['performer'])
+        fn = '{}_{}_{}_{}'.format(
+            r['place_contest'], r['country'], r['song'], r['performer'])
 
         # Skip if file already exists
         fp = os.path.join(destination_dir, fn)
@@ -76,8 +76,8 @@ for i, r in contestantsSR.iterrows():
     start_sec = get_sec(start)
 
     if youtube_url:
-        fn = '{}_{}'.format(
-            r['song'], r['performer'])
+        fn = '{}_{}_{}'.format(
+            r['place_contest'], r['song'], r['performer'])
 
         # Skip if file already exists
         fp = os.path.join(destination_dir, fn)
