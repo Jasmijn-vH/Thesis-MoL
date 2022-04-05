@@ -107,3 +107,50 @@ for i, r in contestantsSR.iterrows():
                 pass
         else:
             print('{} already exists'.format(fp))
+
+
+# Melodi Festivalen
+contestantsMF = pd.read_csv('songsMF.csv')
+
+for i, r in contestantsMF.iterrows():
+    destination_dir = os.path.join(audio_dir, 'MelodiFestivalen', str(r['year']))
+    if not os.path.exists(destination_dir):
+        os.makedirs(destination_dir)
+
+    # Retrieve the youtube-link and starting point of the fragment from the dataframe
+    youtube_url = r['youtube_url_studio']
+    start = r['start']
+    start_sec = get_sec(start)
+
+    if youtube_url:
+        fn = '{}_{}_{}'.format(
+            r['place_contest'], r['song'], r['performer'])
+
+        # Skip if file already exists
+        fp = os.path.join(destination_dir, fn)
+        if not os.path.exists(fp + '_.mp3'):
+            
+            ydl_opts = {
+                'outtmpl': fp + '.%(ext)s',
+                'format': 'bestaudio/best',
+                'postprocessors': [{
+                    'key': 'FFmpegExtractAudio',
+                    'preferredcodec': 'mp3',
+                    'preferredquality': '192',
+                }]
+            }
+
+            try:
+                with youtube_dl.YoutubeDL(ydl_opts) as ydl:
+                    ydl.download([youtube_url])
+
+                    audio_input = ffmpeg.input(fp + '.mp3')
+                    audio_cut = audio_input.audio.filter('atrim', start=start_sec, duration=29)
+                    audio_output = ffmpeg.output(audio_cut, fp + '_.mp3')
+                    ffmpeg.run(audio_output)
+                    os.remove(fp + '.mp3')
+            except Exception as e:
+                print(e)
+                pass
+        else:
+            print('{} already exists'.format(fp))

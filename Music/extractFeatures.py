@@ -11,51 +11,52 @@ import matplotlib.pyplot as plt
 from natsort import os_sorted
 
 
-rootdirectory = './audio'
 feats = []
 
-for root, dirs, files in os.walk(rootdirectory):
-    for song in os_sorted(files):
-        # Extract basic information
-        year    = os.path.basename(root)
-        contest = root.split('/')[-2]
+for contst in ['ESC', 'SanRemo', 'MelodiFestivalen']:
+    rootdirectory = './audio/' + contst
+    for root, dirs, files in os.walk(rootdirectory):
+        for song in os_sorted(files):
+            # Extract basic information
+            year    = os.path.basename(root)
+            contest = root.split('/')[-2]
 
-        if contest == 'ESC':
-            place   = re.split("_", song)[0]
-            country = re.split("_", song)[1]
-            songtit = re.split("_", song)[2]
-            perform = re.split("_", song)[3]
-        else:
-            place   = re.split("_", song)[0]
-            country = ''
-            songtit = re.split("_", song)[1]
-            perform = re.split("_", song)[2]
+            if contest == 'ESC':
+                place   = re.split("_", song)[0]
+                country = re.split("_", song)[1]
+                songtit = re.split("_", song)[2]
+                perform = re.split("_", song)[3]
+            else:
+                place   = re.split("_", song)[0]
+                country = ''
+                songtit = re.split("_", song)[1]
+                perform = re.split("_", song)[2]
 
-        # Extract the musical features
-        features, features_frames = es.MusicExtractor()(os.path.join(root, song))
+            # Extract the musical features
+            features, features_frames = es.MusicExtractor()(os.path.join(root, song))
 
-        # Only erbbands
-        re_bark = re.compile('^.*barkbands.*$')
-        re_mel  = re.compile('^.*melbands.*$')
-        re_mfcc = re.compile('^.*mfcc.*$')
-        re_meta = re.compile('^.*metadata.*$')
-        
-        use_feats = [ f for f in sorted(features.descriptorNames())
-                              if not (re_bark.match(f) or re_mel.match(f) or re_mfcc.match(f) or re_meta.match(f))]
+            # Only erbbands
+            re_bark = re.compile('^.*barkbands.*$')
+            re_mel  = re.compile('^.*melbands.*$')
+            re_mfcc = re.compile('^.*mfcc.*$')
+            re_meta = re.compile('^.*metadata.*$')
+            
+            use_feats = [ f for f in sorted(features.descriptorNames())
+                                if not (re_bark.match(f) or re_mel.match(f) or re_mfcc.match(f) or re_meta.match(f))]
 
-        # Construct a dictionary of the features
-        dictio = {
-            'Contest': contest,
-            'Year': year,
-            'Country': country,
-            'Song': songtit,
-            'Performer': perform,
-            'Place': place
-        }
-        for feature_name in use_feats:
-            dictio[feature_name] = features[feature_name]
-        
-        feats.append(dictio)
+            # Construct a dictionary of the features
+            dictio = {
+                'Contest': contest,
+                'Year': year,
+                'Country': country,
+                'Song': songtit,
+                'Performer': perform,
+                'Place': place
+            }
+            for feature_name in use_feats:
+                dictio[feature_name] = features[feature_name]
+            
+            feats.append(dictio)
 
 
 # Collect all data in a DataFrame and save as .csv
