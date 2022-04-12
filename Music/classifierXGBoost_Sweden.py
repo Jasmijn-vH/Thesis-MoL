@@ -81,6 +81,9 @@ data_num = data_Sweden.select_dtypes(include='number').iloc[:,1:]
 data_all = pandas.concat([data_Sweden['Contest'], data_Sweden['Place'], data_num], axis=1)
 data_tot = data_all.loc[data_all['Year'] != 2022]
 
+# Drop songs which appeared in both contests
+data_tot = data_tot.drop([2, 689, 43, 721, 98, 753, 126, 785, 161, 817, 205, 845, 247, 873, 291, 901, 332, 929, 382, 957])
+
 # Train general classifier on data from 2011 - 2021
 X = data_tot.iloc[:,3:]
 y = data_tot.iloc[:,0]

@@ -80,6 +80,9 @@ data_num = data_Italy.select_dtypes(include='number').iloc[:,1:]
 data_all = pandas.concat([data_Italy['Contest'], data_Italy['Place'], data_num], axis=1)
 data_tot = data_all.loc[data_all['Year'] != 2022]
 
+# Drop songs which appeared in both contests
+data_tot = data_tot.drop([91, 476, 163, 532, 216, 553, 248, 572, 289, 594, 329, 614, 369, 638])
+
 # Train general classifier on data from 2011 - 2021
 X = data_tot.iloc[:,3:]
 y = data_tot.iloc[:,0]
