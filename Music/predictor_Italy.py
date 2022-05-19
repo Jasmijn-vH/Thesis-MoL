@@ -8,7 +8,7 @@ import seaborn as sbn
 
 from xgboost import XGBRanker
 
-from scipy.stats import rankdata, pearsonr
+from scipy.stats import rankdata, spearmanr
 
 
 plt.style.use('seaborn')
@@ -72,8 +72,8 @@ for year in [2011, 2012, 2013, 2014, 2015, 2016, 2017, 2018, 2019, 2021]:
     act_fin_df        = pandas.DataFrame(list(act_fin), index=data_tot_year_ESC['Country'][:len(act_fin)])
     act_fin_df        = rankdata(act_fin_df.drop('Italy', errors='ignore'))
 
-    pearson_year = pearsonr(pred_rank_fin, act_fin_df)
-    print(str(year) + " : " + str(pearson_year))
+    spearman_year = spearmanr(pred_rank_fin, act_fin_df)
+    print(str(year) + " : " + str(spearman_year))
 
 
 # COMPARE THE ITALIAN PREDICTION WITH THE ACTUAL VOTING OF ALL COUNTRIES
@@ -104,29 +104,27 @@ for year in [2011, 2012, 2013, 2014, 2015, 2016, 2017, 2018, 2019, 2021]:
         pred_rank_fin_country = rankdata(pred_rank_fin.drop(country, errors='ignore'))      
 
         # Compare the predicted Italian ranking and the actual ranking from the current country
-        # By computing Pearson's correlation coefficient
-        pearson_country = pearsonr(pred_rank_fin_country, point_rank_country)
-        coefs.append("%0.2f" % pearson_country[0])
-        pvals.append("%0.2f" % pearson_country[1])
+        # By computing Spearman's correlation coefficient
+        spearman_country = spearmanr(pred_rank_fin_country, point_rank_country)
+        coefs.append("%0.2f" % spearman_country[0])
 
-    df_pears_year = pandas.DataFrame([coefs, pvals], index=[str(year)+'_coef', str(year)+'_pval'], columns=countries_year)
+    df_pears_year = pandas.DataFrame([coefs], index=[str(year)+'_coef'], columns=countries_year)
 
     result_df = result_df.append(df_pears_year)
 
-result_df = result_df.reindex(sorted(result_df.columns), axis=1) 
-result_df = result_df.replace(np.nan, '')   
+# Restore alphabetical order
+result_df = result_df.reindex(sorted(result_df.columns), axis=1)   
+
+# Compute median correlation for all countries
+medians = result_df.median(axis=0)
+
+# Sort dataframe by median 
+result_df = result_df.replace(np.nan, '') 
+result_df = result_df.transpose()
+result_df['Median'] = medians
+result_df = result_df.sort_values('Median', ascending=False)
+result_df = result_df.drop('Median', axis=1)
 print(result_df)
 
-# Automatically construct latex tables
-results_1114 = result_df.loc[:'2014_pval']
-results_1517 = result_df.loc['2015_coef':'2017_pval']
-results_1821 = result_df.loc['2018_coef':'2021_pval']
-
-result_1114_transposed = results_1114.transpose() 
-result_1517_transposed = results_1517.transpose() 
-result_1821_transposed = results_1821.transpose() 
-
-print(result_1114_transposed.to_latex(index=True))
-print(result_1517_transposed.to_latex(index=True))
-print(result_1821_transposed.to_latex(index=True))
+print(result_df.to_latex(index=True))
 
