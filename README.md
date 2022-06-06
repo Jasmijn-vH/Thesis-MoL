@@ -5,7 +5,7 @@ It was written in Python version 3.8.10.
 
 ## How to use
 ### Audio and Features
-To download the audio files, run ```scrapeAudio.py```.
+To download the audio files used in this study, run ```scrapeAudio.py```.
 Then, to obtain the audio features, run ```extractFeatures.py```.
 
 ### Classification
@@ -19,3 +19,22 @@ The implementation for the predictions for the general outcome of the Eurovision
 The separate predictions and the comparison to the voting behaviour of all countries are contained in ```votingbehaviour_Italy.py``` (for the Sanremo prediction) and ```votingbehaviour_Sweden.py``` (for the Melodifestivalen prediction).
 
 
+## Files
+The folder `files` contains several datafiles that are used as a base in this study.
+
+### Songs
+The files ```songsESC.csv```, ```songsMF.csv``` and ```songsSanremo.csv``` contain information about the songs performed at the respective festivals between 2011 and 2021. 
+The first file was partially taken from [1]. For the other files, the official data as published by the Italian broadcaster RAI and the Swedish broadcaster SVT were used.
+
+### Points
+The folder `point_allocation_finals` contains an overview of the points distributed in the Eurovision final per year. 
+The rows indicate the points allocated to the country corresponding to the row. The columns indicate the points allocated by the country corresponding to the column.
+All information for these tables was taken from [2] and [3].
+
+
+## References
+[1] J. Spijkervet. The Eurovision Dataset. https://zenodo.org/badge/latestdoi/214236225, 2020. 
+
+[2] Eurovisionworld. https://eurovisionworld.com/eurovision.
+
+[3] European Broadcasting Union. https://eurovision.tv.
