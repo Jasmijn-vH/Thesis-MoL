@@ -5,7 +5,7 @@ It was written in Python version 3.8.10.
 
 ## How to use
 ### Audio and Features
-To download the audio files used in this study, run ```scrapeAudio.py```.
+To download the audio files used in this study, run ```scrapeAudio.py``` (this implementation was partially taken from [1]).
 Then, to obtain the audio features, run ```extractFeatures.py```.
 
 ### Classification
