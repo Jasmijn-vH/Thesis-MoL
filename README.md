@@ -9,13 +9,13 @@ To download the audio files used in this study, run ```scrapeAudio.py``` (this i
 Then, to obtain the audio features, run ```extractFeatures.py```.
 
 ### Classification
-We constructed three sets of classifiers. 
+We constructed three groups of classifiers. 
 First ```classifierXGBoost_Italy.py``` contains the classifiers for comparing the Eurovision and Sanremo.
 For the Eurovision and Melodifestivalen, see ```classifierXGBoost_Sweden.py```. 
 Finally, ```classifierXGBoost_Three.py``` trains the three-class classifier. 
 
 ### Predictions
-The implementation for the predictions for the general outcome of the Eurovision can be found in ```prediction_Eurovision.py```.
+The implementation for the Eurovision predictions based on both national competitions can be found in ```prediction_Eurovision.py```.
 The separate predictions and the comparison to the voting behaviour of all countries are contained in ```votingbehaviour_Italy.py``` (for the Sanremo prediction) and ```votingbehaviour_Sweden.py``` (for the Melodifestivalen prediction).
 
 
@@ -23,7 +23,7 @@ The separate predictions and the comparison to the voting behaviour of all count
 The folder `files` contains several datafiles that are used as a base in this study.
 
 ### Songs
-The files ```songsESC.csv```, ```songsMF.csv``` and ```songsSanremo.csv``` contain information about the songs performed at the respective festivals between 2011 and 2021. 
+The files ```songsESC.csv```, ```songsMF.csv``` and ```songsSanremo.csv``` contain information about the songs performed at the respective festivals between 2011 and 2021 (with the exception of 2020). 
 The first file was partially taken from [1]. For the other files, the official data as published by the Italian broadcaster RAI and the Swedish broadcaster SVT were used.
 
 ### Points
